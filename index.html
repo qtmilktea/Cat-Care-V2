@@ -61,3 +61,27 @@
 <script src="app.js"></script>
 </body>
 </html>
+
+<!-- 新增貓咪喝水量紀錄區塊 -->
+<div class="card my-3">
+  <div class="card-body">
+    <h5 class="card-title">🐈 貓咪喝水量紀錄</h5>
+    <div class="row g-2 align-items-center">
+      <div class="col-md-3">
+        <label for="initialWater" class="form-label">初始水量 (g)</label>
+        <input type="number" id="initialWater" class="form-field" placeholder="例如：500" />
+      </div>
+      <div class="col-md-3">
+        <label for="finalWater" class="form-label">最終水量 (g)</label>
+        <input type="number" id="finalWater" class="form-field" placeholder="例如：200" />
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">總喝水量 (g)</label>
+        <input type="text" id="totalWater" class="form-field" readonly placeholder="0 g" />
+      </div>
+      <div class="col-md-3 d-flex align-items-end">
+        <button id="saveWaterBtn" class="btn btn-primary w-100">儲存喝水紀錄</button>
+      </div>
+    </div>
+  </div>
+</div>
