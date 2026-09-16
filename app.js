@@ -1,174 +1,35 @@
-const KEY="cat-care-v2";
-const DEFAULT=["餵食","喝水","餵藥","清理貓砂","梳毛","眼睛清潔","其他"];
-let db=JSON.parse(localStorage.getItem(KEY)||"null")||{cats:[],options:DEFAULT,lastDay:dayKey()};
-let filter="all",editCat=null,editCare=null,photoData=null;
-
-const $=s=>document.querySelector(s);
-const uid=()=>crypto.randomUUID();
-function dayKey(d=new Date()){let x=new Date(d);if(x.getHours()<6)x.setDate(x.getDate()-1);return x.toISOString().slice(0,10)}
-function save(){localStorage.setItem(KEY,JSON.stringify(db))}
-function dailyReset(){let k=dayKey();if(db.lastDay!==k){db.cats.forEach(c=>c.cares.forEach(x=>x.done=false));db.lastDay=k;save()}}
-function esc(s){return String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]))}
-function nowHHMM(){return new Date().toTimeString().slice(0,5)}
-function render(){
- dailyReset();
- $("#dateText").textContent=new Date().toLocaleDateString("zh-TW",{year:"numeric",month:"long",day:"numeric",weekday:"long"})+" · 06:00 重置";
- let all=db.cats.flatMap(c=>c.cares), done=all.filter(x=>x.done).length,pending=all.length-done;
- $("#doneCount").textContent=done;$("#totalCount").textContent=all.length;$("#pendingCount").textContent=pending;
- $("#percent").textContent=all.length?Math.round(done/all.length*100)+"%":"0%";$("#progress").style.width=all.length?done/all.length*100+"%":"0%";
- $("#cats").innerHTML=db.cats.length?db.cats.map(renderCat).join(""):`<div class="empty">還沒有貓咪 🐾<br><small>按下方「新增貓咪」開始設定</small></div>`;
- bind();
-}
-function renderCat(c){
- let cares=[...c.cares].sort((a,b)=>a.time.localeCompare(b.time));
- if(filter==="pending")cares=cares.filter(x=>!x.done);
- return `<article class="cat">
- <div class="cat-head"><div class="avatar">${c.photo?`<img class="avatar" src="${c.photo}">`:"🐱"}</div><div class="cat-info"><div class="cat-name">${esc(c.name)}</div>${c.memo?`<div class="cat-memo">${esc(c.memo)}</div>`:""}</div>
- <button data-cat-edit="${c.id}">編輯</button><button data-cat-del="${c.id}">刪除</button></div>
- ${cares.length?cares.map(x=>{let late=!x.done&&x.time<nowHHMM();return `<div class="care ${x.done?"done":""} ${late?"late":""}">
- <div class="time">${esc(x.time)}</div><div class="info"><strong>${esc(x.type)} ${x.important?'<span class="important">★</span>':""}</strong>${x.memo?`<small>${esc(x.memo)}</small>`:""}</div>
- <button class="check ${x.done?"done":""}" data-toggle="${c.id}:${x.id}">${x.done?"✓":"○"}</button></div>`}).join(""):`<div class="empty">沒有符合條件的照護事項</div>`}
- <div class="care-tools">${filter==="all"?`<button data-add="${c.id}">＋ 新增照護</button>`:""}${c.cares.length?`<button data-history="${c.id}">📋 今日項目 ${c.cares.length}</button>`:""}</div>
- </article>`
-}
-function bind(){
- document.querySelectorAll("[data-toggle]").forEach(b=>b.onclick=()=>{let [cid,xid]=b.dataset.toggle.split(":");let x=db.cats.find(c=>c.id===cid)?.cares.find(x=>x.id===xid);if(x){x.done=!x.done;save();render()}});
- document.querySelectorAll("[data-add]").forEach(b=>b.onclick=()=>openCare(b.dataset.add));
- document.querySelectorAll("[data-cat-edit]").forEach(b=>b.onclick=()=>openCat(b.dataset.catEdit));
- document.querySelectorAll("[data-cat-del]").forEach(b=>b.onclick=()=>{if(confirm("確定刪除這隻貓咪？")){db.cats=db.cats.filter(c=>c.id!==b.dataset.catDel);save();render()}});
- document.querySelectorAll("[data-history]").forEach(b=>b.onclick=()=>alert("目前版本以今日照護為主；若要完整歷史紀錄，可在下一版加入日期查詢與統計。"));
-}
-function openCat(id=null){
- editCat=id;photoData=null;let c=id?db.cats.find(x=>x.id===id):null;
- $("#catTitle").textContent=id?"編輯貓咪":"新增貓咪";$("#catName").value=c?.name||"";$("#catMemo").value=c?.memo||"";
- $("#catPhoto").value="";$("#photoPreview").hidden=!c?.photo;if(c?.photo)$("#photoPreview").src=c.photo;$("#catModal").showModal();
-}
-function openCare(cid,xid=null){
- editCare=xid;editCat=cid;let c=db.cats.find(x=>x.id===cid),x=c?.cares.find(y=>y.id===xid);
- $("#careTitle").textContent=xid?"編輯照護":"新增照護";$("#careType").innerHTML=db.options.map(o=>`<option>${esc(o)}</option>`).join("");$("#careType").value=x?.type||db.options[0];$("#careTime").value=x?.time||"08:00";$("#careMemo").value=x?.memo||"";$("#careImportant").checked=!!x?.important;$("#careModal").showModal();
-}
-$("#catPhoto").onchange=e=>{let f=e.target.files[0];if(!f)return;let r=new FileReader();r.onload=()=>{photoData=r.result;$("#photoPreview").src=photoData;$("#photoPreview").hidden=false};r.readAsDataURL(f)};
-$("#catForm").onsubmit=e=>{e.preventDefault();let name=$("#catName").value.trim();if(!name)return;let photo=photoData||(editCat?db.cats.find(c=>c.id===editCat)?.photo:"");if(editCat){let c=db.cats.find(x=>x.id===editCat);Object.assign(c,{name,memo:$("#catMemo").value.trim(),photo})}else db.cats.push({id:uid(),name,memo:$("#catMemo").value.trim(),photo,cares:[]});save();$("#catModal").close();render()};
-$("#careForm").onsubmit=e=>{e.preventDefault();let c=db.cats.find(x=>x.id===editCat);if(!c)return;let data={type:$("#careType").value,time:$("#careTime").value,memo:$("#careMemo").value.trim(),important:$("#careImportant").checked,done:false};if(editCare){let x=c.cares.find(y=>y.id===editCare);Object.assign(x,data)}else c.cares.push({id:uid(),...data});save();$("#careModal").close();render()};
-$("#addCat").onclick=()=>openCat();
-$("#pendingBtn").onclick=()=>{filter="pending";$("#pendingBtn").classList.add("active");$("#allBtn").classList.remove("active");render()};
-$("#allBtn").onclick=()=>{filter="all";$("#allBtn").classList.add("active");$("#pendingBtn").classList.remove("active");render()};
-$("#settingsBtn").onclick=()=>{renderSettings();$("#settingsModal").showModal()};
-document.querySelectorAll(".close").forEach(b=>b.onclick=()=>b.closest("dialog").close());
-
-function renderSettings(){
- $("#options").innerHTML=db.options.map((x,i)=>`<span class="chip">${esc(x)} <button data-opt="${i}">✕</button></span>`).join("");
- document.querySelectorAll("[data-opt]").forEach(b=>b.onclick=()=>{if(db.options.length===1)return;db.options.splice(+b.dataset.opt,1);save();renderSettings()});
- $("#notifyStatus").textContent="Notification" in window?(Notification.permission==="granted"?"已允許瀏覽器通知。":"尚未授權瀏覽器通知。"):"此瀏覽器不支援通知。";
-}
-$("#addOption").onclick=()=>{let v=$("#newOption").value.trim();if(v&&!db.options.includes(v)){db.options.push(v);$("#newOption").value="";save();renderSettings()}};
-$("#notify").onclick=async()=>{if(!("Notification"in window))return alert("瀏覽器不支援通知。");let p=await Notification.requestPermission();renderSettings();if(p==="granted")new Notification("🐱 Cat Care",{body:"提醒通知已啟用"});}
-$("#export").onclick=()=>{let blob=new Blob([JSON.stringify(db,null,2)],{type:"application/json"}),a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="cat-care-backup.json";a.click();URL.revokeObjectURL(a.href)};
-$("#import").onchange=e=>{let f=e.target.files[0];if(!f)return;let r=new FileReader();r.onload=()=>{try{let x=JSON.parse(r.result);if(!x.cats||!x.options)throw 0;db=x;save();renderSettings();render();alert("備份匯入成功")}catch{alert("這不是有效的 Cat Care 備份檔")}};r.readAsText(f)};
-$("#clear").onclick=()=>{if(confirm("確定清除全部貓咪與照護資料？此操作無法復原。")){localStorage.removeItem(KEY);location.reload()}};
-
-// ==========================================
-// 1. 照護選項管理（保留動態選項，AM 06:00 僅重置打勾）
-// ==========================================
-
-// 讀取/儲存自訂選項與狀態
-function loadCareOptions() {
-  const options = JSON.parse(localStorage.getItem('care_options')) || [
-    { id: '1', text: '餵食早餐', checked: false },
-    { id: '2', text: '清理砂盆', checked: false }
-  ];
-  return options;
-}
-
-function saveCareOptions(options) {
-  localStorage.setItem('care_options', JSON.stringify(options));
-}
-
-// 檢查並執行 AM 06:00 狀態重置
-function checkDailyReset() {
-  const lastReset = localStorage.getItem('last_care_reset_date');
-  const now = new Date();
-  
-  // 計算今天的 AM 06:00 時間點
-  const todaySixAM = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 6, 0, 0);
-  
-  // 如果目前時間已過今天 AM 06:00，且最後重置時間小於今天 AM 06:00，則執行打勾取消
-  if (now >= todaySixAM) {
-    const lastResetDate = lastReset ? new Date(lastReset) : null;
-    if (!lastResetDate || lastResetDate < todaySixAM) {
-      const options = loadCareOptions();
-      const resetOptions = options.map(opt => ({ ...opt, checked: false }));
-      
-      saveCareOptions(resetOptions);
-      localStorage.setItem('last_care_reset_date', now.toISOString());
-      renderCareList(); // 重新渲染畫面
-    }
-  }
-}
-
-// 新增動態選項（永久保留）
-function addCareOption(text) {
-  const options = loadCareOptions();
-  options.push({
-    id: Date.now().toString(),
-    text: text,
-    checked: false
-  });
-  saveCareOptions(options);
-  renderCareList();
-}
-
-
-// ==========================================
-// 2. 貓咪喝水量紀錄（不受 AM 06:00 重置影響）
-// ==========================================
-
-function calculateWaterIntake() {
-  const initial = parseFloat(document.getElementById('initialWater').value) || 0;
-  const final = parseFloat(document.getElementById('finalWater').value) || 0;
-  const total = Math.max(0, initial - final);
-  
-  document.getElementById('totalWater').value = total + ' g';
-  return { initial, final, total };
-}
-
-function saveWaterRecord(catName) {
-  const { initial, final, total } = calculateWaterIntake();
-  const waterRecords = JSON.parse(localStorage.getItem('cat_water_records')) || [];
-  
-  const newRecord = {
-    id: Date.now(),
-    catName: catName || '未指定貓咪',
-    initialWater: initial,
-    finalWater: final,
-    totalWater: total,
-    timestamp: new Date().toLocaleString()
-  };
-  
-  waterRecords.push(newRecord);
-  // 獨立寫入 localStorage，不受 06:00 重置影響
-  localStorage.setItem('cat_water_records', JSON.stringify(waterRecords));
-  alert('喝水量紀錄已儲存！');
-}
-
-// 事件監聽與初始化
-document.getElementById('initialWater')?.addEventListener('input', calculateWaterIntake);
-document.getElementById('finalWater')?.addEventListener('input', calculateWaterIntake);
-
-// 頁面載入時檢查是否需要重置照護清單打勾
-document.addEventListener('DOMContentLoaded', () => {
-  checkDailyReset();
-  // 每分鐘定時檢查一次是否跨過 AM 06:00
-  setInterval(checkDailyReset, 60000);
-});
-
-function reminders(){
- dailyReset();
- if(!("Notification"in window)||Notification.permission!=="granted")return;
- let t=nowHHMM(), key=dayKey()+"-"+t;if(localStorage.getItem("reminderKey")===key)return;
- let due=[];db.cats.forEach(c=>c.cares.forEach(x=>{if(x.time===t&&!x.done)due.push(`${c.name}：${x.type}`)}));
- if(due.length){new Notification("🐱 照護提醒",{body:due.join("\n")});localStorage.setItem("reminderKey",key)}
-}
-setInterval(()=>{render();reminders()},30000);
-render();
-if("serviceWorker"in navigator)navigator.serviceWorker.register("sw.js").catch(()=>{});
+const KEY="cat-care-v2";const DEFAULT=["餵食","換水","清理貓砂","餵藥","梳毛","陪伴／活動","其他"];
+let S=JSON.parse(localStorage.getItem(KEY)||"null")||{cats:[],options:DEFAULT,water:[],reminder:true,lastReset:""};let selectedPhoto="";
+const $=x=>document.querySelector(x), $$=x=>document.querySelectorAll(x);
+const today=()=>new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Taipei"}).format(new Date());
+const timeNow=()=>new Intl.DateTimeFormat("zh-TW",{timeZone:"Asia/Taipei",hour:"2-digit",minute:"2-digit",hour12:false}).format(new Date());
+const uid=()=>crypto.randomUUID?crypto.randomUUID():Date.now()+"-"+Math.random();
+function save(){localStorage.setItem(KEY,JSON.stringify(S));render()}
+function reset(){if(S.lastReset!==today()&&timeNow()>="06:00"){S.cats.forEach(c=>c.tasks.forEach(t=>t.done=false));S.lastReset=today();localStorage.setItem(KEY,JSON.stringify(S))}}
+function esc(v){return String(v).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+function avatar(photo){return photo?`<img src="${photo}" alt="">`:"🐱"}
+function resizePhoto(file){return new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>{const img=new Image();img.onload=()=>{const max=480,scale=Math.min(1,max/Math.max(img.width,img.height)),c=document.createElement("canvas");c.width=Math.round(img.width*scale);c.height=Math.round(img.height*scale);c.getContext("2d").drawImage(img,0,0,c.width,c.height);resolve(c.toDataURL("image/jpeg",.78))};img.onerror=reject;img.src=r.result};r.onerror=reject;r.readAsDataURL(file)})}
+function render(){reset();$("#dateText").textContent=`${today()} · 每日 06:00 更新`;let all=S.cats.flatMap(c=>c.tasks),done=all.filter(t=>t.done).length,p=all.length?Math.round(done/all.length*100):0;$("#pct").textContent=p+"%";$("#ring").style.background=`conic-gradient(var(--accent) ${p*3.6}deg,#eee7e1 ${p*3.6}deg)`;$("#progressTitle").textContent=all.length?`完成 ${done} / ${all.length} 項`:"還沒有照護事項";$("#progressText").textContent=p===100&&all.length?"今天全部完成了！":"完成狀態會自動保存。";
+$("#cats").innerHTML=S.cats.length?S.cats.map(c=>`<article class="card cat-card"><div class="cat-head"><div class="cat-ident"><div class="cat-avatar">${avatar(c.photo)}</div><div><div class="cat-name">${esc(c.name)}</div>${c.note?`<div class="cat-note">${esc(c.note)}</div>`:""}</div></div><div class="cat-actions"><button class="mini addTask" data-id="${c.id}">＋事項</button><button class="mini delCat" data-id="${c.id}">刪除</button></div></div><div class="tasks">${c.tasks.map((t,i)=>`<label class="task ${t.done?"done":""}"><input class="check" data-id="${c.id}" data-i="${i}" type="checkbox" ${t.done?"checked":""}><span>${esc(t.name)}</span><button type="button" class="mini delTask" data-id="${c.id}" data-i="${i}">×</button></label>`).join("")}</div></article>`).join(""):'<div class="empty">還沒有貓咪，先按「＋ 新增」吧 🐱</div>';
+let sum=S.water.reduce((a,r)=>a+r.total,0),count=S.water.length;$("#waterSummary").innerHTML=`<div class="muted">所有紀錄累計</div><div class="water-total">${sum.toFixed(1)} g</div><div class="muted">${count} 筆喝水紀錄</div>`;
+$("#waterRecords").innerHTML=count?S.water.slice().reverse().map(r=>`<article class="card water-card"><div class="water-top"><div><b>🐱 ${esc(r.catName)}</b><div class="muted">${r.date} ${r.time}</div></div><div class="water-amount">${r.total.toFixed(1)} g</div></div><div class="water-detail">初始 ${r.start.toFixed(1)} g → 最終 ${r.end.toFixed(1)} g</div></article>`).join(""):'<div class="empty">尚無喝水紀錄</div>';
+$("#reminder").checked=S.reminder;$("#options").innerHTML=S.options.map((o,i)=>`<div class="option"><span>${esc(o)}</span><button class="mini delOpt" data-i="${i}">刪除</button></div>`).join("")}
+function showPage(name){$$(".page").forEach(x=>x.classList.remove("active"));$("#page-"+name).classList.add("active");$$(".nav").forEach(x=>x.classList.toggle("active",x.dataset.page===name))}
+$$(".nav").forEach(b=>b.onclick=()=>showPage(b.dataset.page));
+$("#addCat").onclick=()=>{selectedPhoto="";$("#catName").value="";$("#catNote").value="";$("#catPhoto").value="";$("#photoPreview").innerHTML="🐱";$("#catDlg").showModal()};
+$("#catPhoto").onchange=async e=>{const f=e.target.files[0];if(!f)return;try{selectedPhoto=await resizePhoto(f);$("#photoPreview").innerHTML=`<img src="${selectedPhoto}" alt="">`}catch{alert("照片讀取失敗。")}};
+$("#removePhoto").onclick=()=>{selectedPhoto="";$("#catPhoto").value="";$("#photoPreview").innerHTML="🐱"};
+$("#catForm").onsubmit=e=>{e.preventDefault();S.cats.push({id:uid(),name:$("#catName").value.trim(),note:$("#catNote").value.trim(),photo:selectedPhoto,tasks:S.options.map(name=>({name,done:false}))});S.lastReset=today();save();$("#catDlg").close()};
+$("#cats").addEventListener("change",e=>{if(!e.target.classList.contains("check"))return;let c=S.cats.find(c=>c.id===e.target.dataset.id);c.tasks[+e.target.dataset.i].done=e.target.checked;save()});
+$("#cats").addEventListener("click",e=>{let id=e.target.dataset.id;if(e.target.classList.contains("delCat")){if(confirm("確定刪除這隻貓咪？")){S.cats=S.cats.filter(c=>c.id!==id);save()}}if(e.target.classList.contains("delTask")){let c=S.cats.find(c=>c.id===id);c.tasks.splice(+e.target.dataset.i,1);save()}if(e.target.classList.contains("addTask")){let c=S.cats.find(c=>c.id===id);$("#taskSelect").innerHTML=S.options.map(o=>`<option>${esc(o)}</option>`).join("");$("#customTask").value="";$("#taskDlg").dataset.cat=id;$("#taskDlg").showModal()}});
+$("#taskForm").onsubmit=e=>{e.preventDefault();let c=S.cats.find(c=>c.id===$("#taskDlg").dataset.cat),v=$("#customTask").value.trim()||$("#taskSelect").value;if(v){c.tasks.push({name:v,done:false});if(!S.options.includes(v))S.options.push(v);save();$("#taskDlg").close()}};
+$("#addWater").onclick=()=>{if(!S.cats.length){alert("請先新增貓咪。");return}$("#waterCat").innerHTML=S.cats.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join("");$("#waterDate").value=today();$("#waterTime").value=new Date().toTimeString().slice(0,5);$("#waterStart").value="";$("#waterEnd").value="";$("#waterTotal").textContent="0.0 g";$("#waterDlg").showModal()};
+function calc(){let a=+$("#waterStart").value||0,b=+$("#waterEnd").value||0;$("#waterTotal").textContent=Math.max(0,a-b).toFixed(1)+" g"}$("#waterStart").oninput=calc;$("#waterEnd").oninput=calc;
+$("#waterForm").onsubmit=e=>{e.preventDefault();let a=+$("#waterStart").value,b=+$("#waterEnd").value;if(b>a){alert("最終水量不能大於初始水量。");return}let c=S.cats.find(c=>c.id===$("#waterCat").value);S.water.push({id:uid(),catId:c.id,catName:c.name,date:$("#waterDate").value,time:$("#waterTime").value,start:a,end:b,total:a-b});save();$("#waterDlg").close()};
+$("#reminder").onchange=e=>{S.reminder=e.target.checked;save()};$("#addOption").onclick=()=>{let v=$("#newOption").value.trim();if(v&&!S.options.includes(v)){S.options.push(v);$("#newOption").value="";save()}};$("#options").onclick=e=>{if(e.target.classList.contains("delOpt")){S.options.splice(+e.target.dataset.i,1);save()}};
+$$(".closeDlg").forEach(b=>b.onclick=()=>b.closest("dialog").close());
+$("#notifyBtn").onclick=async()=>{if(!("Notification"in window)){alert("瀏覽器不支援通知");return}let p=await Notification.requestPermission();alert(p==="granted"?"通知權限已開啟。":"通知權限未開啟。")};
+$("#exportData").onclick=()=>{let blob=new Blob([JSON.stringify(S,null,2)],{type:"application/json"}),a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="cat-care-backup-"+today()+".json";a.click();URL.revokeObjectURL(a.href)};
+$("#importData").onchange=e=>{let f=e.target.files[0];if(!f)return;let r=new FileReader();r.onload=()=>{try{let x=JSON.parse(r.result);if(!x.cats||!x.water||!x.options)throw 0;S=x;save();alert("備份匯入成功。")}catch{alert("這不是有效的貓咪照護備份檔。")}};r.readAsText(f)};
+function reminder(){if(S.reminder&&timeNow()>="09:00"&&localStorage.getItem("cat-care-reminder")!==today()){localStorage.setItem("cat-care-reminder",today());if("Notification"in window&&Notification.permission==="granted")new Notification("貓咪照護提醒",{body:"09:00 了，記得更新今天的照護紀錄 🐱"})}}
+setInterval(()=>{reset();reminder();render()},30000);if("serviceWorker"in navigator)navigator.serviceWorker.register("sw.js").catch(()=>{});render();reminder();
