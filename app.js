@@ -67,6 +67,101 @@ $("#export").onclick=()=>{let blob=new Blob([JSON.stringify(db,null,2)],{type:"a
 $("#import").onchange=e=>{let f=e.target.files[0];if(!f)return;let r=new FileReader();r.onload=()=>{try{let x=JSON.parse(r.result);if(!x.cats||!x.options)throw 0;db=x;save();renderSettings();render();alert("備份匯入成功")}catch{alert("這不是有效的 Cat Care 備份檔")}};r.readAsText(f)};
 $("#clear").onclick=()=>{if(confirm("確定清除全部貓咪與照護資料？此操作無法復原。")){localStorage.removeItem(KEY);location.reload()}};
 
+// ==========================================
+// 1. 照護選項管理（保留動態選項，AM 06:00 僅重置打勾）
+// ==========================================
+
+// 讀取/儲存自訂選項與狀態
+function loadCareOptions() {
+  const options = JSON.parse(localStorage.getItem('care_options')) || [
+    { id: '1', text: '餵食早餐', checked: false },
+    { id: '2', text: '清理砂盆', checked: false }
+  ];
+  return options;
+}
+
+function saveCareOptions(options) {
+  localStorage.setItem('care_options', JSON.stringify(options));
+}
+
+// 檢查並執行 AM 06:00 狀態重置
+function checkDailyReset() {
+  const lastReset = localStorage.getItem('last_care_reset_date');
+  const now = new Date();
+  
+  // 計算今天的 AM 06:00 時間點
+  const todaySixAM = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 6, 0, 0);
+  
+  // 如果目前時間已過今天 AM 06:00，且最後重置時間小於今天 AM 06:00，則執行打勾取消
+  if (now >= todaySixAM) {
+    const lastResetDate = lastReset ? new Date(lastReset) : null;
+    if (!lastResetDate || lastResetDate < todaySixAM) {
+      const options = loadCareOptions();
+      const resetOptions = options.map(opt => ({ ...opt, checked: false }));
+      
+      saveCareOptions(resetOptions);
+      localStorage.setItem('last_care_reset_date', now.toISOString());
+      renderCareList(); // 重新渲染畫面
+    }
+  }
+}
+
+// 新增動態選項（永久保留）
+function addCareOption(text) {
+  const options = loadCareOptions();
+  options.push({
+    id: Date.now().toString(),
+    text: text,
+    checked: false
+  });
+  saveCareOptions(options);
+  renderCareList();
+}
+
+
+// ==========================================
+// 2. 貓咪喝水量紀錄（不受 AM 06:00 重置影響）
+// ==========================================
+
+function calculateWaterIntake() {
+  const initial = parseFloat(document.getElementById('initialWater').value) || 0;
+  const final = parseFloat(document.getElementById('finalWater').value) || 0;
+  const total = Math.max(0, initial - final);
+  
+  document.getElementById('totalWater').value = total + ' g';
+  return { initial, final, total };
+}
+
+function saveWaterRecord(catName) {
+  const { initial, final, total } = calculateWaterIntake();
+  const waterRecords = JSON.parse(localStorage.getItem('cat_water_records')) || [];
+  
+  const newRecord = {
+    id: Date.now(),
+    catName: catName || '未指定貓咪',
+    initialWater: initial,
+    finalWater: final,
+    totalWater: total,
+    timestamp: new Date().toLocaleString()
+  };
+  
+  waterRecords.push(newRecord);
+  // 獨立寫入 localStorage，不受 06:00 重置影響
+  localStorage.setItem('cat_water_records', JSON.stringify(waterRecords));
+  alert('喝水量紀錄已儲存！');
+}
+
+// 事件監聽與初始化
+document.getElementById('initialWater')?.addEventListener('input', calculateWaterIntake);
+document.getElementById('finalWater')?.addEventListener('input', calculateWaterIntake);
+
+// 頁面載入時檢查是否需要重置照護清單打勾
+document.addEventListener('DOMContentLoaded', () => {
+  checkDailyReset();
+  // 每分鐘定時檢查一次是否跨過 AM 06:00
+  setInterval(checkDailyReset, 60000);
+});
+
 function reminders(){
  dailyReset();
  if(!("Notification"in window)||Notification.permission!=="granted")return;
