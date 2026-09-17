@@ -129,9 +129,26 @@ function showUpdate(reg){
   const banner=$("#updateBanner");
   if(!banner)return;
   banner.hidden=false;
-  $("#updateBtn").onclick=()=>{
-    if(reg.waiting)reg.waiting.postMessage({type:"SKIP_WAITING"});
-    else reg.update();
+  $("#updateBtn").onclick=async()=>{
+    const btn=$("#updateBtn");
+    if(btn.dataset.busy==="1")return;
+    btn.dataset.busy="1";
+    btn.disabled=true;
+    btn.textContent="更新中…";
+    try{
+      if(!reg.waiting) await reg.update();
+      if(reg.waiting){
+        reg.waiting.postMessage({type:"SKIP_WAITING"});
+      }else{
+        // 沒有等待中的新版時，再重新載入目前網路版本。
+        location.reload();
+      }
+    }catch{
+      btn.dataset.busy="";
+      btn.disabled=false;
+      btn.textContent="立即更新";
+      alert("更新失敗，請確認網路連線後再試一次。\n\n如果 GitHub Pages 剛更新，請稍等約 1～2 分鐘。");
+    }
   };
 }
 if("serviceWorker"in navigator){
