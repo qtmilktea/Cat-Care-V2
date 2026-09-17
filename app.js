@@ -76,5 +76,34 @@ $("#exportData").onclick=()=>{let blob=new Blob([JSON.stringify(S,null,2)],{type
 $("#importData").onchange=e=>{let f=e.target.files[0];if(!f)return;let r=new FileReader();r.onload=()=>{try{let x=JSON.parse(r.result);if(!x.cats||!x.water||!x.options)throw 0;S=x;save();alert("備份匯入成功。") }catch{alert("這不是有效的貓咪照護備份檔。")}};r.readAsText(f)};
 function reminder(){if(S.reminder&&timeNow()>="09:00"&&localStorage.getItem("cat-care-reminder")!==today()){localStorage.setItem("cat-care-reminder",today());if("Notification"in window&&Notification.permission==="granted")new Notification("貓咪照護提醒",{body:"09:00 了，記得更新今天的照護紀錄 🐱"})}}
 setInterval(()=>{reset();reminder();render()},30000);
-if("serviceWorker"in navigator)navigator.serviceWorker.register("sw.js").catch(()=>{});
+
+// V2.4：避免 PWA 長時間使用舊快取，並在有新版時提示更新。
+function showUpdate(reg){
+  const banner=$("#updateBanner");
+  if(!banner)return;
+  banner.hidden=false;
+  $("#updateBtn").onclick=()=>{
+    if(reg.waiting)reg.waiting.postMessage({type:"SKIP_WAITING"});
+    else reg.update();
+  };
+}
+if("serviceWorker"in navigator){
+  navigator.serviceWorker.register("sw.js",{updateViaCache:"none"}).then(reg=>{
+    if(reg.waiting)showUpdate(reg);
+    reg.addEventListener("updatefound",()=>{
+      const worker=reg.installing;
+      if(!worker)return;
+      worker.addEventListener("statechange",()=>{
+        if(worker.state==="installed"&&navigator.serviceWorker.controller)showUpdate(reg);
+      });
+    });
+    setTimeout(()=>reg.update().catch(()=>{}),1200);
+  }).catch(()=>{});
+  let reloaded=false;
+  navigator.serviceWorker.addEventListener("controllerchange",()=>{
+    if(reloaded)return;
+    reloaded=true;
+    location.reload();
+  });
+}
 render();reminder();
