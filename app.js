@@ -1,6 +1,12 @@
 const KEY="cat-care-v2";
+const DATA_VERSION=3;
+const DB_NAME="cat-care-safe-backup";
+const DB_VERSION=1;
 const DEFAULT=["餵食","換水","清理貓砂","餵藥","梳毛","陪伴／活動","其他"];
-let S=JSON.parse(localStorage.getItem(KEY)||"null")||{cats:[],options:DEFAULT,water:[],reminder:true,lastReset:""};
+const EMPTY=()=>({version:DATA_VERSION,cats:[],options:[...DEFAULT],water:[],reminder:true,lastReset:""});
+let S=EMPTY();
+let dbReady=false;
+let saveTimer=null;
 let selectedPhoto="";
 let waterFilter="all";
 let waterCatFilter="all";
@@ -8,8 +14,29 @@ const $=x=>document.querySelector(x), $$=x=>document.querySelectorAll(x);
 const today=()=>new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Taipei"}).format(new Date());
 const timeNow=()=>new Intl.DateTimeFormat("zh-TW",{timeZone:"Asia/Taipei",hour:"2-digit",minute:"2-digit",hour12:false}).format(new Date());
 const uid=()=>crypto.randomUUID?crypto.randomUUID():Date.now()+"-"+Math.random();
-function save(){localStorage.setItem(KEY,JSON.stringify(S));render()}
-function reset(){if(S.lastReset!==today()&&timeNow()>="06:00"){S.cats.forEach(c=>c.tasks.forEach(t=>t.done=false));S.lastReset=today();localStorage.setItem(KEY,JSON.stringify(S))}}
+function normalize(x){
+  const base=EMPTY();
+  if(!x || typeof x!=="object") return base;
+  const out={...base,...x,version:DATA_VERSION};
+  out.cats=Array.isArray(x.cats)?x.cats:[];
+  out.options=Array.isArray(x.options)&&x.options.length?x.options:base.options;
+  out.water=Array.isArray(x.water)?x.water:[];
+  out.reminder=x.reminder!==false;
+  out.lastReset=typeof x.lastReset==="string"?x.lastReset:"";
+  return out;
+}
+function openDB(){return new Promise((resolve,reject)=>{if(!("indexedDB"in window)){resolve(null);return}const r=indexedDB.open(DB_NAME,DB_VERSION);r.onupgradeneeded=()=>{const db=r.result;if(!db.objectStoreNames.contains("snapshots")){const st=db.createObjectStore("snapshots",{keyPath:"id",autoIncrement:true});st.createIndex("created","created")}};r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error)})}
+async function putSnapshot(label="自動備份"){
+  if(!dbReady)return;
+  try{const db=await dbReady;const tx=db.transaction("snapshots","readwrite");tx.objectStore("snapshots").add({created:Date.now(),label,data:JSON.stringify(S)});await new Promise((res,rej)=>{tx.oncomplete=res;tx.onerror=()=>rej(tx.error)});
+    const tx2=db.transaction("snapshots","readwrite"),st=tx2.objectStore("snapshots"),idx=st.index("created");const all=await new Promise((res,rej)=>{const a=idx.getAll();a.onsuccess=()=>res(a.result);a.onerror=()=>rej(a.error)});
+    if(all.length>5){all.sort((a,b)=>a.created-b.created);for(const item of all.slice(0,all.length-5))st.delete(item.id)}
+    localStorage.setItem(KEY,JSON.stringify(S));
+    localStorage.setItem(KEY+"-backup-time",String(Date.now()));
+  }catch(e){try{localStorage.setItem(KEY,JSON.stringify(S))}catch{}}
+}
+function save(){localStorage.setItem(KEY,JSON.stringify(S));render();clearTimeout(saveTimer);saveTimer=setTimeout(()=>putSnapshot("自動備份"),100)}
+function reset(){if(S.lastReset!==today()&&timeNow()>="06:00"){S.cats.forEach(c=>c.tasks.forEach(t=>t.done=false));S.lastReset=today();localStorage.setItem(KEY,JSON.stringify(S));putSnapshot("06:00 重置前後備份")}}
 function esc(v){return String(v).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
 function avatar(photo){return photo?`<img src="${photo}" alt="">`:"🐱"}
 function resizePhoto(file){return new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>{const img=new Image();img.onload=()=>{const max=480,scale=Math.min(1,max/Math.max(img.width,img.height)),c=document.createElement("canvas");c.width=Math.round(img.width*scale);c.height=Math.round(img.height*scale);c.getContext("2d").drawImage(img,0,0,c.width,c.height);resolve(c.toDataURL("image/jpeg",.78))};img.onerror=reject;img.src=r.result};r.onerror=reject;r.readAsDataURL(file)})}
@@ -72,8 +99,28 @@ $("#addOption").onclick=()=>{let v=$("#newOption").value.trim();if(v&&!S.options
 $("#options").onclick=e=>{if(e.target.classList.contains("delOpt")){S.options.splice(+e.target.dataset.i,1);save()}};
 $$('.closeDlg').forEach(b=>b.onclick=()=>b.closest('dialog').close());
 $("#notifyBtn").onclick=async()=>{if(!("Notification"in window)){alert("瀏覽器不支援通知");return}let p=await Notification.requestPermission();alert(p==="granted"?"通知權限已開啟。":"通知權限未開啟。")};
-$("#exportData").onclick=()=>{let blob=new Blob([JSON.stringify(S,null,2)],{type:"application/json"}),a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="cat-care-backup-"+today()+".json";a.click();URL.revokeObjectURL(a.href)};
-$("#importData").onchange=e=>{let f=e.target.files[0];if(!f)return;let r=new FileReader();r.onload=()=>{try{let x=JSON.parse(r.result);if(!x.cats||!x.water||!x.options)throw 0;S=x;save();alert("備份匯入成功。") }catch{alert("這不是有效的貓咪照護備份檔。")}};r.readAsText(f)};
+async function exportBackup(){
+  const blob=new Blob([JSON.stringify({...S,version:DATA_VERSION,exportedAt:new Date().toISOString()},null,2)],{type:"application/json"});
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="cat-care-backup-"+today()+".json";a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+  localStorage.setItem(KEY+"-manual-backup-time",String(Date.now()));
+  updateBackupStatus();
+}
+$("#exportData").onclick=exportBackup;
+$("#makeDeviceBackup").onclick=async()=>{await putSnapshot("手動裝置備份");updateBackupStatus();alert("裝置備份已建立。\n\n建議再按「匯出 JSON」，把檔案存到 iCloud Drive／檔案 App，這樣即使換裝置也能還原。")};
+$("#importData").onchange=e=>{let f=e.target.files[0];if(!f)return;let r=new FileReader();r.onload=async()=>{try{let x=normalize(JSON.parse(r.result));if(!Array.isArray(x.cats)||!Array.isArray(x.water)||!Array.isArray(x.options))throw 0;if(!confirm("匯入會以備份內容取代目前資料。要先保留目前資料並繼續嗎？"))return;await putSnapshot("匯入前自動備份");S=x;save();alert("備份匯入成功。") }catch{alert("這不是有效的貓咪照護備份檔。")}};r.readAsText(f);e.target.value=""};
+function updateBackupStatus(){
+  const a=localStorage.getItem(KEY+"-manual-backup-time"),b=localStorage.getItem(KEY+"-backup-time");
+  const t=Math.max(Number(a)||0,Number(b)||0);
+  $("#backupStatus").textContent=t?`最近備份：${new Date(t).toLocaleString("zh-TW")}`:"尚未建立備份";
+}
+async function restoreLatestSnapshot(){
+  if(!dbReady){alert("此瀏覽器不支援裝置備份。請使用「匯出 JSON」。");return}
+  try{const db=await dbReady,tx=db.transaction("snapshots","readonly"),idx=tx.objectStore("snapshots").index("created"),all=await new Promise((res,rej)=>{const a=idx.getAll();a.onsuccess=()=>res(a.result);a.onerror=()=>rej(a.error)});
+    if(!all.length){alert("目前沒有裝置備份。");return} all.sort((a,b)=>b.created-a.created);
+    if(!confirm(`要還原最近一次裝置備份（${new Date(all[0].created).toLocaleString("zh-TW")}）嗎？\n\n目前資料會先自動備份。`))return;
+    await putSnapshot("還原前自動備份");S=normalize(JSON.parse(all[0].data));localStorage.setItem(KEY,JSON.stringify(S));render();alert("已還原最近一次裝置備份。");
+  }catch{alert("裝置備份還原失敗，請改用 JSON 備份。")}}
+$("#restoreDeviceBackup").onclick=restoreLatestSnapshot;
 function reminder(){if(S.reminder&&timeNow()>="09:00"&&localStorage.getItem("cat-care-reminder")!==today()){localStorage.setItem("cat-care-reminder",today());if("Notification"in window&&Notification.permission==="granted")new Notification("貓咪照護提醒",{body:"09:00 了，記得更新今天的照護紀錄 🐱"})}}
 setInterval(()=>{reset();reminder();render()},30000);
 
@@ -106,4 +153,11 @@ if("serviceWorker"in navigator){
     location.reload();
   });
 }
-render();reminder();
+(async()=>{
+  try{dbReady=await openDB()}catch{dbReady=null}
+  let local=null;try{local=JSON.parse(localStorage.getItem(KEY)||"null")}catch{}
+  if(local){S=normalize(local)}
+  else if(dbReady){try{const db=await dbReady,tx=db.transaction("snapshots","readonly"),idx=tx.objectStore("snapshots").index("created"),all=await new Promise((res,rej)=>{const a=idx.getAll();a.onsuccess=()=>res(a.result);a.onerror=()=>rej(a.error)});if(all.length){all.sort((a,b)=>b.created-a.created);S=normalize(JSON.parse(all[0].data));localStorage.setItem(KEY,JSON.stringify(S));alert("已從裝置備份恢復資料。")}}catch{}}
+  reset();render();reminder();updateBackupStatus();
+  if(dbReady&&!local)await putSnapshot("首次安全備份");
+})();
