@@ -69,7 +69,6 @@ function render(){
 function showPage(name){$$('.page').forEach(x=>x.classList.remove('active'));$("#page-"+name).classList.add('active');$$('.nav').forEach(x=>x.classList.toggle('active',x.dataset.page===name))}
 $$('.nav').forEach(b=>b.onclick=()=>showPage(b.dataset.page));
 $("#manageCats").onclick=()=>{showPage("today");setTimeout(()=>$("#addCat")?.click(),50)};
-$("#manageCareItems").onclick=()=>{showPage("settings");setTimeout(()=>$("#newOption")?.scrollIntoView({behavior:"smooth",block:"center"}),50)};
 $("#addCat").onclick=()=>{selectedPhoto="";$("#catName").value="";$("#catNote").value="";$("#catPhoto").value="";$("#photoPreview").innerHTML="🐱";$("#catDlg").showModal()};
 $("#catPhoto").onchange=async e=>{const f=e.target.files[0];if(!f)return;try{selectedPhoto=await resizePhoto(f);$("#photoPreview").innerHTML=`<img src="${selectedPhoto}" alt="">`}catch{alert("照片讀取失敗。")}};
 $("#removePhoto").onclick=()=>{selectedPhoto="";$("#catPhoto").value="";$("#photoPreview").innerHTML="🐱"};
