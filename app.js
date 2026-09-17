@@ -68,6 +68,8 @@ function render(){
 }
 function showPage(name){$$('.page').forEach(x=>x.classList.remove('active'));$("#page-"+name).classList.add('active');$$('.nav').forEach(x=>x.classList.toggle('active',x.dataset.page===name))}
 $$('.nav').forEach(b=>b.onclick=()=>showPage(b.dataset.page));
+$("#manageCats").onclick=()=>{showPage("today");setTimeout(()=>$("#addCat")?.click(),50)};
+$("#manageCareItems").onclick=()=>{showPage("settings");setTimeout(()=>$("#newOption")?.scrollIntoView({behavior:"smooth",block:"center"}),50)};
 $("#addCat").onclick=()=>{selectedPhoto="";$("#catName").value="";$("#catNote").value="";$("#catPhoto").value="";$("#photoPreview").innerHTML="🐱";$("#catDlg").showModal()};
 $("#catPhoto").onchange=async e=>{const f=e.target.files[0];if(!f)return;try{selectedPhoto=await resizePhoto(f);$("#photoPreview").innerHTML=`<img src="${selectedPhoto}" alt="">`}catch{alert("照片讀取失敗。")}};
 $("#removePhoto").onclick=()=>{selectedPhoto="";$("#catPhoto").value="";$("#photoPreview").innerHTML="🐱"};
@@ -129,20 +131,42 @@ function showUpdate(reg){
   const banner=$("#updateBanner");
   if(!banner)return;
   banner.hidden=false;
-  $("#updateBtn").onclick=async()=>{
-    const btn=$("#updateBtn");
+  const btn=$("#updateBtn");
+  if(btn.dataset.bound==="1")return;
+  btn.dataset.bound="1";
+  btn.onclick=async()=>{
     if(btn.dataset.busy==="1")return;
     btn.dataset.busy="1";
     btn.disabled=true;
     btn.textContent="更新中…";
     try{
-      if(!reg.waiting) await reg.update();
-      if(reg.waiting){
-        reg.waiting.postMessage({type:"SKIP_WAITING"});
-      }else{
-        // 沒有等待中的新版時，再重新載入目前網路版本。
-        location.reload();
+      await reg.update();
+
+      let waiting=reg.waiting;
+      if(!waiting && reg.installing){
+        const installing=reg.installing;
+        await new Promise((resolve,reject)=>{
+          const timer=setTimeout(()=>resolve(),15000);
+          installing.addEventListener("statechange",()=>{
+            if(installing.state==="installed"){
+              clearTimeout(timer);
+              resolve();
+            }else if(installing.state==="redundant"){
+              clearTimeout(timer);
+              reject(new Error("service worker install failed"));
+            }
+          });
+        });
+        waiting=reg.waiting;
       }
+
+      if(waiting){
+        waiting.postMessage({type:"SKIP_WAITING"});
+        return;
+      }
+
+      // 沒有等待中的新版：重新抓取頁面，避免停在舊的記憶體內容。
+      location.reload();
     }catch{
       btn.dataset.busy="";
       btn.disabled=false;

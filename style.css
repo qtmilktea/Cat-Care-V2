@@ -179,3 +179,28 @@ dialog {
     bottom: 18px;
   }
 }
+
+/* V3.4.2: clickable management cards */
+.setting-card-button {
+  width: 100%;
+  border: 0;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  display: flex;
+  align-items: center;
+}
+.setting-card-button .setting-copy {
+  flex: 1;
+}
+.setting-arrow {
+  margin-left: auto;
+  padding-left: 10px;
+  font-size: 30px;
+  line-height: 1;
+  color: #9a918b;
+}
+.setting-card-button:active {
+  transform: scale(.995);
+}
