@@ -95,3 +95,87 @@ dialog{border:0;border-radius:20px;padding:0;width:min(92vw,480px);box-shadow:0 
 .settings-update .update-copy span:last-child{display:block;font-size:11px;line-height:1.45;color:#7c6872;margin-top:2px}
 .settings-update .update-dot{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:#ff4d98;color:#fff;font-weight:900;flex:none}
 .settings-update #updateBtn{white-space:nowrap;flex:none;padding:9px 12px}
+
+/* V3.4: fixed App shell — middle content scrolls, bottom navigation never moves */
+html, body {
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  min-height: 100dvh;
+  padding: 0;
+  overscroll-behavior: none;
+}
+
+.app-shell {
+  height: 100dvh;
+  min-height: 0;
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.topbar {
+  flex: 0 0 auto;
+  padding: 14px 14px 8px;
+  margin: 0;
+}
+
+main {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+  padding: 0 14px calc(110px + env(safe-area-inset-bottom));
+}
+
+.page {
+  min-height: 100%;
+  padding-bottom: 12px;
+}
+
+.bottom-nav {
+  position: fixed;
+  left: 50%;
+  bottom: max(10px, env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  z-index: 9999;
+  width: min(520px, calc(100% - 28px));
+  flex: none;
+  margin: 0;
+}
+
+/* Prevent long lists from pushing the navigation bar */
+.cat-list,
+.water-list,
+.settings-list {
+  min-width: 0;
+}
+
+/* Dialogs remain above the fixed navigation */
+dialog {
+  z-index: 10000;
+}
+
+@media (min-width: 760px) {
+  .topbar {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+
+  main {
+    padding-left: 14px;
+    padding-right: 14px;
+    padding-bottom: 110px;
+  }
+
+  .bottom-nav {
+    bottom: 18px;
+  }
+}
