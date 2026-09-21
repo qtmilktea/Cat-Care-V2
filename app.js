@@ -383,3 +383,36 @@ setInterval(() => { reset(); reminder(); render(); }, 30000);
   if (dbReady && !local) await putSnapshot("首次安全備份");
   await syncFromCloud();
 })();
+// 強制從雲端抓取並覆蓋本地資料
+async function forceSyncFromCloud() {
+  if (!GAS_URL) {
+    alert("❌ 請先設定 GAS_URL！");
+    return;
+  }
+  
+  try {
+    const res = await fetch(GAS_URL);
+    const data = await res.json();
+    
+    // 檢查雲端是否有有效的 JSON 資料
+    if (data && typeof data === "object" && Object.keys(data).length > 0) {
+      // 覆蓋本地 LocalStorage
+      localStorage.setItem("catData", JSON.stringify(data));      
+      alert("✅ 已成功從雲端同步最新資料！頁面即將重新載入...");
+      location.reload(); // 重新整理頁面顯示最新貓咪資料
+    } else {
+      alert("⚠️ 雲端試算表 A1 是空的，請先在 PC 網頁修改資料上傳！");
+    }
+  } catch (err) {
+    alert("❌ 下載失敗，請檢查網路或 GAS 網址: " + err);
+  }
+}
+
+// 自動在頁面左下角產生一個「強制更新」按鈕
+window.addEventListener("DOMContentLoaded", () => {
+  const btn = document.createElement("button");
+  btn.innerText = "🔄 強制從雲端更新資料";
+  btn.style.cssText = "position:fixed; bottom:20px; left:20px; z-index:9999; padding:12px 18px; background:#4CAF50; color:white; border:none; border-radius:8px; font-size:16px; font-weight:bold; box-shadow:0 4px 10px rgba(0,0,0,0.3); cursor:pointer;";
+  btn.onclick = forceSyncFromCloud;
+  document.body.appendChild(btn);
+});
