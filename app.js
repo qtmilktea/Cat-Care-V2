@@ -409,40 +409,56 @@ async function forceSyncFromCloud() {
 }
 
 // 自動在頁面左下角產生一個「強制更新」按鈕
-// 1. 強制從雲端抓取並覆蓋本地資料
-async function forceSyncFromCloud() {
-  if (!GAS_URL) {
-    alert("❌ 請先設定 GAS_URL！");
-    return;
-  }
-  
-  try {
-    const res = await fetch(GAS_URL);
-    const data = await res.json();
-    
-    if (data && typeof data === "object" && Object.keys(data).length > 0) {
-      localStorage.setItem(KEY, JSON.stringify(data));
-      alert("✅ 已成功從雲端同步最新資料！頁面即將重新載入...");
-      location.reload(); 
-    } else {
-      alert("⚠️ 雲端試算表 A1 是空的，請先在 PC 網頁修改資料上傳！");
+// 智慧同步：自動判斷 PC 上傳或手機下載
+async function handleSmartSync() {
+  if (!GAS_URL) { alert("❌ 請先設定 GAS_URL！"); return; }
+
+  // 判斷是否為手機裝置 (或畫寬小於 768px)
+  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth < 768;
+
+  if (!isMobile) {
+    // 【PC 端】強制上傳資料至雲端
+    const localData = localStorage.getItem(KEY);
+    if (!localData) { alert("❌ 本地沒有資料可供上傳！"); return; }
+
+    try {
+      await fetch(GAS_URL, {
+        method: "POST",
+        mode: "no-cors",
+        headers: { "Content-Type": "text/plain" },
+        body: localData
+      });
+      alert("✅ [PC端] 已成功將最新資料上傳至雲端！\n現在可以在手機點擊同步按鈕了。");
+    } catch (err) {
+      alert("❌ 上傳失敗: " + err);
     }
-  } catch (err) {
-    alert("❌ 下載失敗，請檢查網路或 GAS 網址: " + err);
+  } else {
+    // 【手機端】強制從雲端下載資料
+    try {
+      const res = await fetch(GAS_URL);
+      const data = await res.json();
+      
+      if (data && typeof data === "object" && Object.keys(data).length > 0) {
+        localStorage.setItem(KEY, JSON.stringify(data));
+        alert("✅ [手機端] 已成功從雲端同步最新資料！頁面即將重新載入...");
+        location.reload(); 
+      } else {
+        alert("⚠️ 雲端資料庫目前是空的，請先在 PC 點擊同步上傳資料！");
+      }
+    } catch (err) {
+      alert("❌ 下載失敗，請檢查網路或 GAS 網址: " + err);
+    }
   }
 }
 
-// 2. 找到畫面原有的「從雲端同步最新資料」粉紅按鈕，直接將點擊功能替換掉
+// 綁定 DATA SAFETY 區塊原本的粉紅按鈕
 function bindBackupSyncButton() {
-  // 尋找包含「從雲端同步」字眼的按鈕
   const buttons = Array.from(document.querySelectorAll("button"));
-  const cloudBtn = buttons.find(btn => btn.innerText.includes("從雲端同步"));
-  
-  if (cloudBtn) {
-    cloudBtn.onclick = forceSyncFromCloud;
+  const syncBtn = buttons.find(btn => btn.innerText.includes("從雲端同步") || btn.innerText.includes("雲端"));
+  if (syncBtn) {
+    syncBtn.onclick = handleSmartSync;
   }
 }
 
-// 當頁面載入或切換分頁時自動綁定
 document.addEventListener("click", () => setTimeout(bindBackupSyncButton, 100));
 window.addEventListener("DOMContentLoaded", bindBackupSyncButton);
