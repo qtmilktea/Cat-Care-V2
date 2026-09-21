@@ -1,4 +1,4 @@
-// ⚠️ 1. 請在此處貼上你部署 Google Apps Script 後產生的網頁應用程式 URL (結尾必須是 /exec)
+// ⚠️ 請確保這行引號是半形的雙引號 ""，且網址完整
 const GAS_URL = "https://script.google.com/macros/s/AKfycbyYKYHVuMFKVzybi40dCLzxVdqiUAA_sGV3d9-Pq57Uqz5MgwupUGD7VM8taC3-zm9m/exec";
 
 const KEY="cat-care-v2";
@@ -30,9 +30,9 @@ function normalize(x){
   return out;
 }
 
-// --- 🌐 Google 雲端同步函式 (新增) ---
+// --- 🌐 Google 雲端同步函式 ---
 async function syncToCloud() {
-  if (!GAS_URL || GAS_URL.includes("你的_DEPLOYMENT_ID")) return;
+  if (!GAS_URL || GAS_URL.includes("你的部署ID")) return;
   try {
     await fetch(GAS_URL, {
       method: "POST",
@@ -47,7 +47,7 @@ async function syncToCloud() {
 }
 
 async function syncFromCloud(showNotification = false) {
-  if (!GAS_URL || GAS_URL.includes("你的_DEPLOYMENT_ID")) return;
+  if (!GAS_URL || GAS_URL.includes("你的部署ID")) return;
   try {
     const res = await fetch(GAS_URL);
     const data = await res.json();
@@ -76,14 +76,13 @@ async function putSnapshot(label="自動備份"){
   }catch(e){try{localStorage.setItem(KEY,JSON.stringify(S))}catch{}}
 }
 
-// 核心改動：每次存檔時，自動上傳到 Google 雲端
 function save(){
   localStorage.setItem(KEY,JSON.stringify(S));
   render();
   clearTimeout(saveTimer);
   saveTimer=setTimeout(()=>{
     putSnapshot("自動備份");
-    syncToCloud(); // 👈 觸發雲端同步
+    syncToCloud();
   },100);
 }
 
@@ -177,7 +176,6 @@ $("#restoreDeviceBackup").onclick=restoreLatestSnapshot;
 function reminder(){if(S.reminder&&timeNow()>="09:00"&&localStorage.getItem("cat-care-reminder")!==today()){localStorage.setItem("cat-care-reminder",today());if("Notification"in window&&Notification.permission==="granted")new Notification("貓咪照護提醒",{body:"09:00 了，記得更新今天的照護紀錄 🐱"})}}
 setInterval(()=>{reset();reminder();render()},30000);
 
-// V2.4：避免 PWA 長時間使用舊快取，並在有新版時提示更新。
 function showUpdate(reg){
   const banner=$("#updateBanner");
   if(!banner)return;
@@ -243,7 +241,6 @@ if("serviceWorker"in navigator){
   });
 }
 
-// 頁面初始化：先讀取本地，再自動去 Google 雲端拉取最新資料
 (async()=>{
   try{dbReady=await openDB()}catch{dbReady=null}
   let local=null;try{local=JSON.parse(localStorage.getItem(KEY)||"null")}catch{}
@@ -253,6 +250,5 @@ if("serviceWorker"in navigator){
   reset();render();reminder();updateBackupStatus();
   if(dbReady&&!local)await putSnapshot("首次安全備份");
 
-  // ☁️ 網頁開啟時，自動去雲端抓取最新的貓咪與喝水紀錄！
   await syncFromCloud();
 })();
