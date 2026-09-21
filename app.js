@@ -409,7 +409,7 @@ async function forceSyncFromCloud() {
 }
 
 // 自動在頁面左下角產生一個「強制更新」按鈕
-// 強制從雲端抓取並覆蓋本地資料
+// 1. 強制從雲端抓取並覆蓋本地資料
 async function forceSyncFromCloud() {
   if (!GAS_URL) {
     alert("❌ 請先設定 GAS_URL！");
@@ -432,23 +432,17 @@ async function forceSyncFromCloud() {
   }
 }
 
-// 將按鈕插入至「資料備份」區塊內
-function injectBackupSyncButton() {
-  if (document.getElementById("btn-force-sync")) return;
-
-  // 尋找「資料備份」的容器或按鈕區域
-  const backupGroup = document.querySelector("#backupSection, .backup-group, .settings-group") || document.body;
+// 2. 找到畫面原有的「從雲端同步最新資料」粉紅按鈕，直接將點擊功能替換掉
+function bindBackupSyncButton() {
+  // 尋找包含「從雲端同步」字眼的按鈕
+  const buttons = Array.from(document.querySelectorAll("button"));
+  const cloudBtn = buttons.find(btn => btn.innerText.includes("從雲端同步"));
   
-  const btn = document.createElement("button");
-  btn.id = "btn-force-sync";
-  btn.className = "btn btn-secondary"; // 沿用既有備份按鈕的 CSS 類別
-  btn.innerText = "🔄 強制從雲端下載／同步最新資料";
-  btn.style.cssText = "margin-top: 10px; width: 100%;";
-  btn.onclick = forceSyncFromCloud;
-
-  backupGroup.appendChild(btn);
+  if (cloudBtn) {
+    cloudBtn.onclick = forceSyncFromCloud;
+  }
 }
 
-// 當畫面切換至設定頁時自動掛載按鈕
-document.addEventListener("click", () => setTimeout(injectBackupSyncButton, 100));
-window.addEventListener("DOMContentLoaded", injectBackupSyncButton);
+// 當頁面載入或切換分頁時自動綁定
+document.addEventListener("click", () => setTimeout(bindBackupSyncButton, 100));
+window.addEventListener("DOMContentLoaded", bindBackupSyncButton);
