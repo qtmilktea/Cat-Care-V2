@@ -204,9 +204,3 @@ dialog {
 .setting-card-button:active {
   transform: scale(.995);
 }
-
-/* V3.5 Google Drive sync */
-.cloud-sync-card{border:1px solid #dbeafe;background:linear-gradient(180deg,#ffffff 0%,#f8fbff 100%)}
-.cloud-icon{background:#eaf4ff}
-.cloud-actions{display:grid;grid-template-columns:1fr;gap:8px;margin-top:10px}
-.cloud-note{display:block;margin-top:9px;line-height:1.45}

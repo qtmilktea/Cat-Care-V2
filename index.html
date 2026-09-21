@@ -10,7 +10,6 @@
 <link rel="manifest" href="manifest.json">
 <link rel="stylesheet" href="style.css">
 <title>貓咪照護</title>
-<script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
 <div class="app-shell">
@@ -93,22 +92,7 @@
       <div class="setting-copy"><b>每日 09:00 提醒</b><span>開啟提醒通知</span></div>
       <label class="switch"><input id="reminder" type="checkbox"><span></span></label>
     </div>
-    
-    <div class="card cloud-sync-card">
-      <div class="security-head">
-        <div class="setting-icon cloud-icon">☁️</div>
-        <div><span class="section-label">GOOGLE CLOUD</span><h3>Google 雲端同步</h3></div>
-      </div>
-      <p class="muted">在 iPhone 與 iPad 使用同一個 Google 帳號，共用貓咪照護資料。</p>
-      <div id="googleSyncStatus" class="backup-status">尚未連線</div>
-      <div class="cloud-actions">
-        <button id="googleSignInBtn" class="primary wide">使用 Google 帳號登入</button>
-        <button id="googleSyncBtn" class="secondary wide" disabled>立即同步</button>
-      </div>
-      <small class="muted cloud-note">第一次同步前會先保留目前裝置資料；請先使用「匯出完整備份」留一份 JSON。</small>
-    </div>
-
-<div class="card safety-card">
+    <div class="card safety-card">
       <div class="security-head"><div class="setting-icon pink-icon">💾</div><div><span class="section-label">DATA SAFETY</span><h3>資料備份</h3></div></div>
       <p class="muted">更新、換裝置或重新建立 Web App 前，請先匯出 JSON。</p>
       <div id="backupStatus" class="backup-status">尚未建立備份</div>
@@ -152,5 +136,4 @@ document.addEventListener("DOMContentLoaded",()=>{
 });
 </script>
 <script src="app.js"></script>
-<script src="google-sync.js"></script>
 </body></html>
