@@ -256,7 +256,12 @@ function openWaterDialog(record) {
 const aWater = $("#addWater");
 if (aWater) aWater.onclick = () => openWaterDialog();
 
-function calc() { let a = +$("#waterStart").value || 0, b = +$("#waterEnd").value \vert{}\vert{} 0; $("#waterTotal").textContent = Math.max(0, a - b).toFixed(1) + " g"; }
+function calc() {
+  let a = +$("#waterStart").value || 0;
+  let b = +$("#waterEnd").value || 0;
+  $("#waterTotal").textContent = Math.max(0, a - b).toFixed(1) + " g";
+}
+
 const wStart = $("#waterStart"), wEnd = $("#waterEnd"); if (wStart) wStart.oninput = calc; if (wEnd) wEnd.oninput = calc;  $$('.filter').forEach(b => b.onclick = () => { waterFilter = b.dataset.filter; render(); });
 
 const wCatFilter = $("#waterCatFilter");
@@ -301,8 +306,12 @@ if (nBtn) nBtn.onclick = async () => {
 };
 
 async function exportBackup() {
-  const blob = new Blob([JSON.stringify({ ...S, version: DATA_VERSION, exportedAt: new Date().toISOString() }, null, 2)], { type: "application/json" });
-  const a = document.createElement("a"); a.href = URL.URL.createObjectURL ? URL.createObjectURL(blob) : ""; a.download = "cat-care-backup-" + today() + ".json"; a.click();
+  const data = JSON.stringify({ ...S, version: DATA_VERSION, exportedAt: new Date().toISOString() }, null, 2);
+  const blob = new Blob([data], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "cat-care-backup-" + today() + ".json";
+  a.click();
   localStorage.setItem(KEY + "-manual-backup-time", String(Date.now()));
   updateBackupStatus();
 }
