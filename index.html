@@ -97,7 +97,8 @@
       <p class="muted">更新、換裝置或重新建立 Web App 前，請先匯出 JSON。</p>
       <div id="backupStatus" class="backup-status">尚未建立備份</div>
       <div class="backup-grid">
-        <button id="exportData" class="primary wide">匯出完整備份</button>
+        <button type="button" onclick="syncFromCloud(true)" class="primary wide">☁️ 從雲端同步最新資料</button>
+        <button id="exportData" class="secondary wide">匯出完整備份</button>
         <button id="makeDeviceBackup" class="secondary wide">建立裝置備份</button>
         <button id="restoreDeviceBackup" class="secondary wide">還原最近備份</button>
         <label class="secondary wide file-label">匯入 JSON 備份<input id="importData" type="file" accept=".json"></label>
