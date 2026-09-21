@@ -1,4 +1,4 @@
-// ⚠️ 請確保這行引號是半形的雙引號 ""，且網址完整
+//
 const GAS_URL = "https://script.google.com/macros/s/AKfycbyYKYHVuMFKVzybi40dCLzxVdqiUAA_sGV3d9-Pq57Uqz5MgwupUGD7VM8taC3-zm9m/exec";
 
 const KEY = "cat-care-v2";
