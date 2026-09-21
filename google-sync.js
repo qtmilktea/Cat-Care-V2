@@ -1,7 +1,7 @@
 /* Cat Care V3.5.1 - Google Drive login fix */
 (() => {
   // 請將這裡換成你在 Google Cloud 建立的 Web application Client ID
-  const GOOGLE_CLIENT_ID = "375632068667-o49uunr890qdvg8qtcncj3ek8qu7e9fo.apps.googleusercontent.com";
+  const GOOGLE_CLIENT_ID = "375632068667-q2gb4a11trirhlrgkgmd5rpdd7dc1t6s.apps.googleusercontent.com";
   const DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.file";
   const FILE_NAME = "cat-care-cloud-data.json";
 
