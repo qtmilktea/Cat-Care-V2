@@ -409,10 +409,66 @@ async function forceSyncFromCloud() {
 }
 
 // 自動在頁面左下角產生一個「強制更新」按鈕
-window.addEventListener("DOMContentLoaded", () => {
+// 強制從雲端抓取並覆蓋本地資料
+async function forceSyncFromCloud() {
+  if (!GAS_URL) {
+    alert("❌ 請先設定 GAS_URL！");
+    return;
+  }
+  
+  try {
+    const res = await fetch(GAS_URL);
+    const data = await res.json();
+    
+    if (data && typeof data === "object" && Object.keys(data).length > 0) {
+      localStorage.setItem(KEY, JSON.stringify(data));
+      alert("✅ 已成功從雲端同步最新資料！頁面即將重新載入...");
+      location.reload(); 
+    } else {
+      alert("⚠️ 雲端試算表 A1 是空的，請先在 PC 網頁修改資料上傳！");
+    }
+  } catch (err) {
+    alert("❌ 下載失敗，請檢查網路或 GAS 網址: " + err);
+  }
+}
+
+// 渲染設定頁面內部的質感同步按鈕
+function renderSettingsSyncButton() {
+  // 尋找設定頁面的容器 (根據頁面 DOM 結構插入)
+  const settingsContainer = document.querySelector("#settingsView, .settings-page, [data-page='settings']") || document.body;
+  
+  // 避免重複建立
+  if (document.getElementById("btn-force-sync")) return;
+
   const btn = document.createElement("button");
-  btn.innerText = "🔄 強制從雲端更新資料";
-  btn.style.cssText = "position:fixed; bottom:20px; left:20px; z-index:9999; padding:12px 18px; background:#4CAF50; color:white; border:none; border-radius:8px; font-size:16px; font-weight:bold; box-shadow:0 4px 10px rgba(0,0,0,0.3); cursor:pointer;";
+  btn.id = "btn-force-sync";
+  btn.innerHTML = "<span>🔄</span> 強制從雲端下載／同步最新資料";
+  
+  // 套用與原本 APP 質感一致的美化樣式
+  btn.style.cssText = `
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 90%;
+    max-width: 360px;
+    margin: 20px auto;
+    padding: 14px 20px;
+    background: linear-gradient(135deg, #6B73FF 0%, #000DFF 100%);
+    color: #FFFFFF;
+    border: none;
+    border-radius: 14px;
+    font-size: 15px;
+    font-weight: 600;
+    box-shadow: 0 4px 12px rgba(107, 115, 255, 0.3);
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+  `;
+
   btn.onclick = forceSyncFromCloud;
-  document.body.appendChild(btn);
-});
+  settingsContainer.appendChild(btn);
+}
+
+// 當切換分頁或頁面載入時嘗試繪製按鈕
+window.addEventListener("DOMContentLoaded", renderSettingsSyncButton);
+document.addEventListener("click", () => setTimeout(renderSettingsSyncButton, 100));
