@@ -432,43 +432,23 @@ async function forceSyncFromCloud() {
   }
 }
 
-// 渲染設定頁面內部的質感同步按鈕
-function renderSettingsSyncButton() {
-  // 尋找設定頁面的容器 (根據頁面 DOM 結構插入)
-  const settingsContainer = document.querySelector("#settingsView, .settings-page, [data-page='settings']") || document.body;
-  
-  // 避免重複建立
+// 將按鈕插入至「資料備份」區塊內
+function injectBackupSyncButton() {
   if (document.getElementById("btn-force-sync")) return;
 
+  // 尋找「資料備份」的容器或按鈕區域
+  const backupGroup = document.querySelector("#backupSection, .backup-group, .settings-group") || document.body;
+  
   const btn = document.createElement("button");
   btn.id = "btn-force-sync";
-  btn.innerHTML = "<span>🔄</span> 強制從雲端下載／同步最新資料";
-  
-  // 套用與原本 APP 質感一致的美化樣式
-  btn.style.cssText = `
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    width: 90%;
-    max-width: 360px;
-    margin: 20px auto;
-    padding: 14px 20px;
-    background: linear-gradient(135deg, #6B73FF 0%, #000DFF 100%);
-    color: #FFFFFF;
-    border: none;
-    border-radius: 14px;
-    font-size: 15px;
-    font-weight: 600;
-    box-shadow: 0 4px 12px rgba(107, 115, 255, 0.3);
-    cursor: pointer;
-    transition: transform 0.2s, box-shadow 0.2s;
-  `;
-
+  btn.className = "btn btn-secondary"; // 沿用既有備份按鈕的 CSS 類別
+  btn.innerText = "🔄 強制從雲端下載／同步最新資料";
+  btn.style.cssText = "margin-top: 10px; width: 100%;";
   btn.onclick = forceSyncFromCloud;
-  settingsContainer.appendChild(btn);
+
+  backupGroup.appendChild(btn);
 }
 
-// 當切換分頁或頁面載入時嘗試繪製按鈕
-window.addEventListener("DOMContentLoaded", renderSettingsSyncButton);
-document.addEventListener("click", () => setTimeout(renderSettingsSyncButton, 100));
+// 當畫面切換至設定頁時自動掛載按鈕
+document.addEventListener("click", () => setTimeout(injectBackupSyncButton, 100));
+window.addEventListener("DOMContentLoaded", injectBackupSyncButton);
