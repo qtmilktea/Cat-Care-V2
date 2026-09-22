@@ -1,5 +1,5 @@
 //
-const GAS_URL = "https://script.google.com/macros/s/AKfycbyeRFFiqyUUtE10nQQRSbVm2ykm_S8Zv5XNNeiYA_uKTcT7hyJ6NLnIeoLuR91B-SmN/exec";
+const GAS_URL = "https://script.google.com/macros/s/AKfycbyd-6bVVRI4k9jO9l_UG5v4PYmvjttp4Xh1_qskei4-xm7EbSgmds1Oz51j8GqtXBns/exec";
 
 const KEY = "cat-care-v2";
 const DATA_VERSION = 3;
