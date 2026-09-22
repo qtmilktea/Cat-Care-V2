@@ -408,57 +408,91 @@ async function forceSyncFromCloud() {
   }
 }
 
-// 自動在頁面左下角產生一個「強制更新」按鈕
-// 智慧同步：自動判斷 PC 上傳或手機下載
-async function handleSmartSync() {
-  if (!GAS_URL) { alert("❌ 請先設定 GAS_URL！"); return; }
-
-  // 判斷是否為手機裝置 (或畫寬小於 768px)
-  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth < 768;
-
-  if (!isMobile) {
-    // 【PC 端】強制上傳資料至雲端
-    const localData = localStorage.getItem(KEY);
-    if (!localData) { alert("❌ 本地沒有資料可供上傳！"); return; }
-
-    try {
-      await fetch(GAS_URL, {
-        method: "POST",
-        mode: "no-cors",
-        headers: { "Content-Type": "text/plain" },
-        body: localData
-      });
-      alert("✅ [PC端] 已成功將最新資料上傳至雲端！\n現在可以在手機點擊同步按鈕了。");
-    } catch (err) {
-      alert("❌ 上傳失敗: " + err);
+// 1. 強制從雲端抓取並覆蓋本地資料 (下載)
+async function forceSyncFromCloud() {
+  if (!GAS_URL) {
+    alert("❌ 請先設定 GAS_URL！");
+    return;
+  }
+  
+  try {
+    const res = await fetch(GAS_URL);
+    const data = await res.json();
+    
+    if (data && typeof data === "object" && Object.keys(data).length > 0) {
+      localStorage.setItem(KEY, JSON.stringify(data));
+      alert("✅ 已成功從雲端同步最新資料！頁面即將重新載入...");
+      location.reload(); 
+    } else {
+      alert("⚠️ 雲端資料庫目前是空的，請先點擊「強制上傳 PC 資料至雲端」！");
     }
-  } else {
-    // 【手機端】強制從雲端下載資料
-    try {
-      const res = await fetch(GAS_URL);
-      const data = await res.json();
-      
-      if (data && typeof data === "object" && Object.keys(data).length > 0) {
-        localStorage.setItem(KEY, JSON.stringify(data));
-        alert("✅ [手機端] 已成功從雲端同步最新資料！頁面即將重新載入...");
-        location.reload(); 
-      } else {
-        alert("⚠️ 雲端資料庫目前是空的，請先在 PC 點擊同步上傳資料！");
-      }
-    } catch (err) {
-      alert("❌ 下載失敗，請檢查網路或 GAS 網址: " + err);
-    }
+  } catch (err) {
+    alert("❌ 下載失敗，請檢查網路或 GAS 網址: " + err);
   }
 }
 
-// 綁定 DATA SAFETY 區塊原本的粉紅按鈕
-function bindBackupSyncButton() {
+// 2. 強制將本地資料推送到雲端 (上傳)
+async function forceUploadToCloud() {
+  if (!GAS_URL) {
+    alert("❌ 請先設定 GAS_URL！");
+    return;
+  }
+  const localData = localStorage.getItem(KEY);
+  if (!localData) {
+    alert("❌ 本地沒有資料可供上傳！");
+    return;
+  }
+  
+  try {
+    await fetch(GAS_URL, {
+      method: "POST",
+      mode: "no-cors",
+      headers: { "Content-Type": "text/plain" },
+      body: localData
+    });
+    alert("✅ 已成功將 PC 資料強制上傳至雲端！");
+  } catch (err) {
+    alert("❌ 上傳失敗: " + err);
+  }
+}
+
+// 3. 綁定下載按鈕並自動在下方插入淺綠色上傳按鈕
+function injectSyncAndUploadButtons() {
   const buttons = Array.from(document.querySelectorAll("button"));
   const syncBtn = buttons.find(btn => btn.innerText.includes("從雲端同步") || btn.innerText.includes("雲端"));
+  
   if (syncBtn) {
-    syncBtn.onclick = handleSmartSync;
+    // 將粉紅按鈕綁定為「下載」
+    syncBtn.onclick = forceSyncFromCloud;
+
+    // 檢查是否已存在上傳按鈕，避免重複建立
+    if (!document.getElementById("btn-force-upload")) {
+      const uploadBtn = document.createElement("button");
+      uploadBtn.id = "btn-force-upload";
+      uploadBtn.className = syncBtn.className; // 繼承原本按鈕的圓角與基礎樣式
+      uploadBtn.innerText = "☁️ 強制上傳 PC 資料至雲端";
+      
+      // 設定淺綠色風格與邊距
+      uploadBtn.style.cssText = `
+        margin-top: 10px;
+        width: 100%;
+        background-color: #81C784;
+        color: #FFFFFF;
+        border: none;
+        border-radius: 12px;
+        padding: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        box-shadow: 0 2px 6px rgba(129, 199, 132, 0.4);
+      `;
+      
+      uploadBtn.onclick = forceUploadToCloud;
+      
+      // 插入在「從雲端同步最新資料」按鈕的正下方
+      syncBtn.parentNode.insertBefore(uploadBtn, syncBtn.nextSibling);
+    }
   }
 }
 
-document.addEventListener("click", () => setTimeout(bindBackupSyncButton, 100));
-window.addEventListener("DOMContentLoaded", bindBackupSyncButton);
+document.addEventListener("click", () => setTimeout(injectSyncAndUploadButtons, 100));
+window.addEventListener("DOMContentLoaded", injectSyncAndUploadButtons);
